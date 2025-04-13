@@ -4,7 +4,7 @@ from models import Imovel
 
 app = FastAPI()
 
-@app.post("/imoveis/")
+@app.post("/api/imoveis/")
 async def create_imovel(imovel: Imovel):
     try:
         doc_ref = db.collection("imoveis").document()
