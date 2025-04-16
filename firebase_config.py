@@ -7,7 +7,7 @@ logging.basicConfig(level=logging.INFO)
 def initialize_firebase():
     """Inicializa o SDK Admin do Firebase para Firestore."""
     try:
-        cred = credentials.Certificate("credentials/novaChave.json")
+        cred = credentials.Certificate("credentials/processo-seletivo.json")
         firebase_admin.initialize_app(cred)
         logging.info("Firebase inicializado com sucesso.")
         return firestore.client()
