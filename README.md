@@ -25,3 +25,13 @@ Criando um CRUD:
 
 
 
+
+## Testes por setor
+
+Os testes são organizados por setor e executados via GitHub Actions conforme as labels da PR:
+
+- `ERP` → `pytest tests/erp/`
+- `CRM` → `pytest tests/crm/`
+- `SITE` → `pytest tests/site/`
+
+Requer as labels `Ready for QA` + setor para disparar os testes.
