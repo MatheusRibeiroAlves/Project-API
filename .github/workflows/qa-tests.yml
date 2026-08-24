@@ -2,93 +2,55 @@ name: QA Tests
 
 on:
   pull_request:
-    types: [labeled, unlabeled, synchronize, reopened]
+    types: [labeled, synchronize, reopened]
 
 jobs:
 
   # ─────────────────────────────────────────────
-  # 1) Lê as labels atuais da PR e expõe outputs
+  # 1) Detecta setor — só executa quando a label
+  #    adicionada for ERP, CRM ou SITE (não Ready for QA)
+  #    ou quando um novo commit é enviado
   # ─────────────────────────────────────────────
   detect-labels:
-    name: Detectar Labels
+    name: Detectar Setor
     runs-on: ubuntu-latest
+    if: |
+      github.event.action == 'synchronize' ||
+      github.event.action == 'reopened'    ||
+      contains(fromJSON('["ERP","CRM","SITE"]'), github.event.label.name)
     outputs:
-      ready_for_qa: ${{ steps.labels.outputs.ready_for_qa }}
-      run_erp:      ${{ steps.labels.outputs.run_erp }}
-      run_crm:      ${{ steps.labels.outputs.run_crm }}
-      run_site:     ${{ steps.labels.outputs.run_site }}
-      sector_count: ${{ steps.labels.outputs.sector_count }}
+      run_erp:  ${{ steps.labels.outputs.run_erp }}
+      run_crm:  ${{ steps.labels.outputs.run_crm }}
+      run_site: ${{ steps.labels.outputs.run_site }}
     steps:
-      - name: Verificar labels da PR
+      - name: Verificar labels de setor da PR
         id: labels
         env:
           LABELS: ${{ toJSON(github.event.pull_request.labels.*.name) }}
         run: |
-          echo "Labels encontradas: $LABELS"
+          echo "Labels atuais: $LABELS"
 
           has_label() {
             echo "$LABELS" | jq -e --arg l "$1" 'map(select(. == $l)) | length > 0' > /dev/null
           }
 
-          # Verifica Ready for QA
-          if has_label "Ready for QA"; then
-            echo "ready_for_qa=true" >> $GITHUB_OUTPUT
-            echo "✅ 'Ready for QA' detectada"
-          else
-            echo "ready_for_qa=false" >> $GITHUB_OUTPUT
-            echo "⏭️  'Ready for QA' não encontrada — workflow ignorado"
-          fi
-
-          # Verifica labels de setor
-          count=0
           for sector in ERP CRM SITE; do
             key=$(echo "$sector" | tr '[:upper:]' '[:lower:]')
             if has_label "$sector"; then
               echo "run_${key}=true" >> $GITHUB_OUTPUT
               echo "✅ Setor '$sector' detectado"
-              count=$((count + 1))
             else
               echo "run_${key}=false" >> $GITHUB_OUTPUT
             fi
           done
 
-          echo "sector_count=$count" >> $GITHUB_OUTPUT
-          echo "Total de setores detectados: $count"
-
   # ─────────────────────────────────────────────
-  # 2) Valida que existe ao menos uma label de setor
-  # ─────────────────────────────────────────────
-  validate:
-    name: Validar Labels
-    needs: detect-labels
-    runs-on: ubuntu-latest
-    if: needs.detect-labels.outputs.ready_for_qa == 'true'
-    steps:
-      - name: Checar label de setor
-        run: |
-          count=${{ needs.detect-labels.outputs.sector_count }}
-
-          if [ "$count" -eq 0 ]; then
-            echo "❌ PR tem 'Ready for QA' mas nenhuma label de setor foi encontrada."
-            echo "   Adicione uma das labels: ERP, CRM ou SITE."
-            exit 1
-          fi
-
-          if [ "$count" -gt 1 ]; then
-            echo "⚠️  Múltiplos setores detectados — todos serão testados em paralelo."
-          fi
-
-          echo "✅ Validação ok — $count setor(es) será(ão) testado(s)"
-
-  # ─────────────────────────────────────────────
-  # 3a) Testes ERP
+  # 2a) Testes ERP
   # ─────────────────────────────────────────────
   test-erp:
     name: "Testes :: ERP"
-    needs: [detect-labels, validate]
-    if: |
-      needs.detect-labels.outputs.ready_for_qa == 'true' &&
-      needs.detect-labels.outputs.run_erp == 'true'
+    needs: detect-labels
+    if: needs.detect-labels.outputs.run_erp == 'true'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -108,14 +70,12 @@ jobs:
         run: pytest tests/erp/ -v
 
   # ─────────────────────────────────────────────
-  # 3b) Testes CRM
+  # 2b) Testes CRM
   # ─────────────────────────────────────────────
   test-crm:
     name: "Testes :: CRM"
-    needs: [detect-labels, validate]
-    if: |
-      needs.detect-labels.outputs.ready_for_qa == 'true' &&
-      needs.detect-labels.outputs.run_crm == 'true'
+    needs: detect-labels
+    if: needs.detect-labels.outputs.run_crm == 'true'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -135,14 +95,12 @@ jobs:
         run: pytest tests/crm/ -v
 
   # ─────────────────────────────────────────────
-  # 3c) Testes SITE
+  # 2c) Testes SITE
   # ─────────────────────────────────────────────
   test-site:
     name: "Testes :: SITE"
-    needs: [detect-labels, validate]
-    if: |
-      needs.detect-labels.outputs.ready_for_qa == 'true' &&
-      needs.detect-labels.outputs.run_site == 'true'
+    needs: detect-labels
+    if: needs.detect-labels.outputs.run_site == 'true'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
