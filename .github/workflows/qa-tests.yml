@@ -52,6 +52,18 @@ jobs:
     needs: detect-labels
     if: needs.detect-labels.outputs.run_erp == 'true'
     runs-on: ubuntu-latest
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: test_password
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h localhost -ptest_password"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -75,6 +87,7 @@ jobs:
       - name: Rodar testes ERP
         env:
           TEST_ENVIRONMENT: "true"
+          MYSQL_HOST: "127.0.0.1"
         run: pytest tests/erp/ -v
 
   # ─────────────────────────────────────────────
