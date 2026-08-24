@@ -1,5 +1,6 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 from typing import Optional, List
+
 
 class ImovelBase(BaseModel):
     titulo: str
@@ -8,11 +9,12 @@ class ImovelBase(BaseModel):
     valor: float
     imagens: Optional[List[str]] = None
 
+
 class ImovelCreate(ImovelBase):
     pass
 
-class ImovelResponse(ImovelBase):
-    id: Optional[str] = None
 
-    class Config:
-        orm_mode = True
+class ImovelResponse(ImovelBase):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: Optional[str] = None
