@@ -1,0 +1,162 @@
+name: QA Tests
+
+on:
+  pull_request:
+    types: [labeled, unlabeled, synchronize, reopened]
+
+jobs:
+
+  # ─────────────────────────────────────────────
+  # 1) Lê as labels atuais da PR e expõe outputs
+  # ─────────────────────────────────────────────
+  detect-labels:
+    name: Detectar Labels
+    runs-on: ubuntu-latest
+    outputs:
+      ready_for_qa: ${{ steps.labels.outputs.ready_for_qa }}
+      run_erp:      ${{ steps.labels.outputs.run_erp }}
+      run_crm:      ${{ steps.labels.outputs.run_crm }}
+      run_site:     ${{ steps.labels.outputs.run_site }}
+      sector_count: ${{ steps.labels.outputs.sector_count }}
+    steps:
+      - name: Verificar labels da PR
+        id: labels
+        env:
+          LABELS: ${{ toJSON(github.event.pull_request.labels.*.name) }}
+        run: |
+          echo "Labels encontradas: $LABELS"
+
+          has_label() {
+            echo "$LABELS" | jq -e --arg l "$1" 'map(select(. == $l)) | length > 0' > /dev/null
+          }
+
+          # Verifica Ready for QA
+          if has_label "Ready for QA"; then
+            echo "ready_for_qa=true" >> $GITHUB_OUTPUT
+            echo "✅ 'Ready for QA' detectada"
+          else
+            echo "ready_for_qa=false" >> $GITHUB_OUTPUT
+            echo "⏭️  'Ready for QA' não encontrada — workflow ignorado"
+          fi
+
+          # Verifica labels de setor
+          count=0
+          for sector in ERP CRM SITE; do
+            key=$(echo "$sector" | tr '[:upper:]' '[:lower:]')
+            if has_label "$sector"; then
+              echo "run_${key}=true" >> $GITHUB_OUTPUT
+              echo "✅ Setor '$sector' detectado"
+              count=$((count + 1))
+            else
+              echo "run_${key}=false" >> $GITHUB_OUTPUT
+            fi
+          done
+
+          echo "sector_count=$count" >> $GITHUB_OUTPUT
+          echo "Total de setores detectados: $count"
+
+  # ─────────────────────────────────────────────
+  # 2) Valida que existe ao menos uma label de setor
+  # ─────────────────────────────────────────────
+  validate:
+    name: Validar Labels
+    needs: detect-labels
+    runs-on: ubuntu-latest
+    if: needs.detect-labels.outputs.ready_for_qa == 'true'
+    steps:
+      - name: Checar label de setor
+        run: |
+          count=${{ needs.detect-labels.outputs.sector_count }}
+
+          if [ "$count" -eq 0 ]; then
+            echo "❌ PR tem 'Ready for QA' mas nenhuma label de setor foi encontrada."
+            echo "   Adicione uma das labels: ERP, CRM ou SITE."
+            exit 1
+          fi
+
+          if [ "$count" -gt 1 ]; then
+            echo "⚠️  Múltiplos setores detectados — todos serão testados em paralelo."
+          fi
+
+          echo "✅ Validação ok — $count setor(es) será(ão) testado(s)"
+
+  # ─────────────────────────────────────────────
+  # 3a) Testes ERP
+  # ─────────────────────────────────────────────
+  test-erp:
+    name: "Testes :: ERP"
+    needs: [detect-labels, validate]
+    if: |
+      needs.detect-labels.outputs.ready_for_qa == 'true' &&
+      needs.detect-labels.outputs.run_erp == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configurar Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Instalar dependências
+        run: pip install -r requirements.txt
+
+      - name: Rodar testes ERP
+        env:
+          TEST_ENVIRONMENT: "true"
+        run: pytest tests/erp/ -v
+
+  # ─────────────────────────────────────────────
+  # 3b) Testes CRM
+  # ─────────────────────────────────────────────
+  test-crm:
+    name: "Testes :: CRM"
+    needs: [detect-labels, validate]
+    if: |
+      needs.detect-labels.outputs.ready_for_qa == 'true' &&
+      needs.detect-labels.outputs.run_crm == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configurar Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Instalar dependências
+        run: pip install -r requirements.txt
+
+      - name: Rodar testes CRM
+        env:
+          TEST_ENVIRONMENT: "true"
+        run: pytest tests/crm/ -v
+
+  # ─────────────────────────────────────────────
+  # 3c) Testes SITE
+  # ─────────────────────────────────────────────
+  test-site:
+    name: "Testes :: SITE"
+    needs: [detect-labels, validate]
+    if: |
+      needs.detect-labels.outputs.ready_for_qa == 'true' &&
+      needs.detect-labels.outputs.run_site == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configurar Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Instalar dependências
+        run: pip install -r requirements.txt
+
+      - name: Rodar testes SITE
+        env:
+          TEST_ENVIRONMENT: "true"
+        run: pytest tests/site/ -v
