@@ -1,0 +1,17 @@
+name: Adicionar PR ao Projeto de QA
+
+on:
+  pull_request:
+    types: [labeled]
+
+jobs:
+  add-to-project:
+    name: Adicionar ao GitHub Project
+    if: github.event.label.name == 'Ready for QA'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Adicionar PR ao Project
+        uses: actions/add-to-project@v1.0.2
+        with:
+          project-url: 'https://github.com/users/MatheusRibeiroAlves/projects/6'
+          github-token: ${{ secrets.ADD_TO_PROJECT_PAT }}
