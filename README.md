@@ -35,3 +35,5 @@ Os testes são organizados por setor e executados via GitHub Actions conforme as
 - `SITE` → `pytest tests/site/`
 
 Requer as labels `Ready for QA` + setor para disparar os testes.
+Requer as labels `Ready for QA` + setor para disparar os testes.
+
