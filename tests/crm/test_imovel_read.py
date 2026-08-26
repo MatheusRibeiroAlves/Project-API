@@ -34,7 +34,7 @@ def test_listar_todos_os_imoveis_com_sucesso():
     resposta = cliente.get("/api/imoveis/")
 
     assert resposta.status_code == 200
-    assert len(resposta.json()) == 2
+    assert len(resposta.json()) == 99  # FALHA INTENCIONAL para testar comentário de erro
     assert resposta.json()[0]["id"] == "id_imovel_a"
     assert resposta.json()[0]["titulo"] == "Casa Confortável"
     assert resposta.json()[1]["id"] == "id_imovel_b"
