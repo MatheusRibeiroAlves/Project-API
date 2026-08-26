@@ -1,0 +1,77 @@
+name: Mover card para Concluído
+
+on:
+  pull_request:
+    types: [closed]
+
+jobs:
+  move-to-done:
+    name: Concluído ao mergear
+    if: github.event.pull_request.merged == true
+    runs-on: ubuntu-latest
+    steps:
+      - name: Mover card para Concluído no Project
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.ADD_TO_PROJECT_PAT }}
+          script: |
+            const PR_URL   = context.payload.pull_request.html_url;
+            const OWNER    = 'MatheusRibeiroAlves';
+            const PROJECT_NUMBER = 6;
+
+            // Busca o project, seus campos e itens
+            const { user } = await github.graphql(`
+              query($owner: String!, $number: Int!) {
+                user(login: $owner) {
+                  projectV2(number: $number) {
+                    id
+                    fields(first: 20) {
+                      nodes {
+                        ... on ProjectV2SingleSelectField {
+                          id
+                          name
+                          options { id name }
+                        }
+                      }
+                    }
+                    items(first: 100) {
+                      nodes {
+                        id
+                        content {
+                          ... on PullRequest { url }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            `, { owner: OWNER, number: PROJECT_NUMBER });
+
+            const project    = user.projectV2;
+            const statusField = project.fields.nodes.find(f => f.name === 'Status');
+            const doneOption  = statusField?.options.find(o => o.name === 'Concluído');
+            const item        = project.items.nodes.find(i => i.content?.url === PR_URL);
+
+            if (!item)       { console.log('PR não encontrada no project.'); return; }
+            if (!doneOption) { console.log('Opção "Concluído" não encontrada no campo Status.'); return; }
+
+            // Atualiza o status do card
+            await github.graphql(`
+              mutation($projectId: ID!, $itemId: ID!, $fieldId: ID!, $optionId: String!) {
+                updateProjectV2ItemFieldValue(input: {
+                  projectId: $projectId
+                  itemId:    $itemId
+                  fieldId:   $fieldId
+                  value: { singleSelectOptionId: $optionId }
+                }) {
+                  projectV2Item { id }
+                }
+              }
+            `, {
+              projectId: project.id,
+              itemId:    item.id,
+              fieldId:   statusField.id,
+              optionId:  doneOption.id,
+            });
+
+            console.log(`✅ Card da PR movido para "Concluído".`);
