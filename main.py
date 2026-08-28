@@ -91,3 +91,7 @@ async def update_imovel(
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Erro ao atualizar imóvel {imovel_id}: {str(e)}")
+
+
+
+
