@@ -21,7 +21,7 @@ def test_criar_novo_imovel_com_sucesso():
     }
     resposta = cliente.post("/api/imoveis/", json=dados)
 
-    assert resposta.status_code == 200
+    assert resposta.status_code == 999  # SIMULAÇÃO DE FALHA — remover após teste
     assert resposta.json()["id"] == "id_gerado_pelo_banco"
     assert resposta.json()["titulo"] == "Apartamento Espaçoso"
     assert resposta.json()["cidade"] == "Rio de Janeiro"
